@@ -3,7 +3,7 @@ name: Weird续期
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'  # 每天 UTC 4:00（北京时区中午 12:00）
+    - cron: '0 2 * * 1'  # 每周一 UTC 2:00（北京中午 10:00）
 
 jobs:
   add_time:
@@ -26,12 +26,12 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
 
-      - name: Run Time Adder Script
+      - name: Run 续期脚本
         env:
           WEIRD_COOKIE: ${{ secrets.WEIRD_COOKIE }}
           WEIRD_EMAIL: ${{ secrets.WEIRD_EMAIL }}
           WEIRD_PASSWORD: ${{ secrets.WEIRD_PASSWORD }}
-        run: python main.py
+        run: python Weird/write.py
 
       - name: Upload error artifacts
         if: failure()
@@ -40,23 +40,22 @@ jobs:
           name: error-screenshots
           path: "*.png"
 
-      - name: Commit time.txt to repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit weird_time.txt to repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if [ ! -f time.txt ]; then
-            echo "首次生成时间：$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          if [ ! -f weird_time.txt ]; then
+            echo "首次生成时间：$(date +'%Y-%m-%d %H:%M:%S')" > weird_time.txt
           else
-            echo "$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+            echo "$(date +'%Y-%m-%d %H:%M:%S')" > weird_time.txt
           fi
 
-          git add time.txt
+          git add weird_time.txt
           if git diff --cached --quiet; then
             echo "无变化，无需提交"
-          else
-            git commit -m "chore: 更新时间文件 $(date +'%Y-%m-%d %H:%M:%S')"
-            git push origin HEAD:main
+            exit 0
           fi
+
+          git commit -m "chore: 更新 weird_time.txt $(date +'%Y-%m-%d %H:%M:%S')"
+          git push
