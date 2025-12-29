@@ -1,0 +1,62 @@
+name: Weird续期
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'  # 每天 UTC 4:00（北京时区中午 12:00）
+
+jobs:
+  add_time:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Playwright and dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Run Time Adder Script
+        env:
+          WEIRD_COOKIE: ${{ secrets.WEIRD_COOKIE }}
+          WEIRD_EMAIL: ${{ secrets.WEIRD_EMAIL }}
+          WEIRD_PASSWORD: ${{ secrets.WEIRD_PASSWORD }}
+        run: python main.py
+
+      - name: Upload error artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: "*.png"
+
+      - name: Commit time.txt to repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ ! -f time.txt ]; then
+            echo "首次生成时间：$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          else
+            echo "$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          fi
+
+          git add time.txt
+          if git diff --cached --quiet; then
+            echo "无变化，无需提交"
+          else
+            git commit -m "chore: 更新时间文件 $(date +'%Y-%m-%d %H:%M:%S')"
+            git push origin HEAD:main
+          fi
