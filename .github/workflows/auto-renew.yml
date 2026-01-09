@@ -31,8 +31,8 @@ jobs:
     - name: Set up WARP
       uses: fscarmen/warp-on-actions@v1.4
       with:
-        stack: dual        # ipv4 / ipv6 / dual
-        mode: wireguard   # wireguard / client
+        stack: dual        # Optional. Support [ ipv4, ipv6, dual ]. Default is dual.
+        mode: wireguard    # Optional. Support [ wireguard, client ]. Default is wireguard.
 
     - name: Run auto renewal
       env:
@@ -40,15 +40,15 @@ jobs:
         WEIRDHOST_EMAIL: ${{ secrets.WEIRDHOST_EMAIL }}
         WEIRDHOST_PASSWORD: ${{ secrets.WEIRDHOST_PASSWORD }}
         WEIRDHOST_SERVER_URLS: ${{ secrets.WEIRDHOST_SERVER_URLS }}
-      run: python weird/write.py
+      run: python Weird/write.py
 
     - name: Commit README and time file
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # 添加 weird 目录下的 README 和 time 文件
-        git add weird/README.md weird/time.txt
+        # 添加 Weird 目录下的 README 和 time 文件
+        git add Weird/README.md Weird/time.txt
 
         # 检查是否有变化需要提交
         if git diff --cached --quiet; then
