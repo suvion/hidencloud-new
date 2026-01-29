@@ -59,56 +59,62 @@ def handle_cloudflare(page):
 def login(page):
     log("开始登录流程...")
     
-    # 1. Cookie 登录尝试
+    # 1. 全量 Cookie 登录尝试
     if HIDENCLOUD_COOKIE:
-        log("尝试 Cookie 登录...")
+        log("正在解析并注入全量 Cookie...")
         try:
-            page.context.add_cookies([{
-                'name': COOKIE_NAME, 'value': HIDENCLOUD_COOKIE,
-                'domain': 'dash.hidencloud.com', 'path': '/',
-                'expires': int(time.time()) + 3600 * 24 * 365,
-                'httpOnly': True, 'secure': True, 'sameSite': 'Lax'
-            }])
+            # 自动解析浏览器复制的 Cookie 字符串
+            formatted_cookies = []
+            for item in HIDENCLOUD_COOKIE.split(';'):
+                if '=' in item:
+                    name, value = item.strip().split('=', 1)
+                    formatted_cookies.append({
+                        'name': name,
+                        'value': value,
+                        'domain': 'dash.hidencloud.com',
+                        'path': '/',
+                        'secure': True,
+                        'sameSite': 'Lax'
+                    })
+            
+            page.context.add_cookies(formatted_cookies)
+            log("Cookie 注入完成，尝试访问服务页面...")
+            
+            # 直接访问管理页面
             page.goto(SERVICE_URL, wait_until="domcontentloaded", timeout=60000)
             handle_cloudflare(page)
             
+            # 如果没被重定向到登录页，说明 Cookie 有效
             if "auth/login" not in page.url:
                 log("✅ Cookie 登录成功！")
                 return True
-            log("Cookie 失效。")
-        except:
-            pass
+            else:
+                log("⚠️ Cookie 可能已失效，被重定向至登录页。")
+        except Exception as e:
+            log(f"❌ Cookie 注入异常: {e}")
 
-    # 2. 账号密码登录
-    if not HIDENCLOUD_EMAIL or not HIDENCLOUD_PASSWORD:
-        return False
-
-    log("尝试账号密码登录...")
-    try:
-        page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-        handle_cloudflare(page)
-        
-        page.fill('input[name="email"]', HIDENCLOUD_EMAIL)
-        page.fill('input[name="password"]', HIDENCLOUD_PASSWORD)
-        time.sleep(0.5)
-        handle_cloudflare(page)
-        
-        page.click('button[type="submit"]')
-        time.sleep(3)
-        handle_cloudflare(page)
-        
-        page.wait_for_url(f"{BASE_URL}/*", timeout=30000)
-        
-        if "auth/login" in page.url:
-             log("❌ 登录失败。")
-             return False
-
-        log("✅ 账号密码登录成功！")
-        return True
-    except Exception as e:
-        log(f"❌ 登录异常: {e}")
-        page.screenshot(path="login_fail.png")
-        return False
+    # 2. 账号密码登录（作为备选，如果 Cookie 失效且配置了账号密码则运行）
+    if HIDENCLOUD_EMAIL and HIDENCLOUD_PASSWORD:
+        log("尝试账号密码登录...")
+        try:
+            page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
+            handle_cloudflare(page)
+            
+            page.fill('input[name="email"]', HIDENCLOUD_EMAIL)
+            page.fill('input[name="password"]', HIDENCLOUD_PASSWORD)
+            time.sleep(1)
+            
+            page.click('button[type="submit"]')
+            page.wait_for_url(f"{BASE_URL}/*", timeout=30000)
+            
+            if "auth/login" not in page.url:
+                log("✅ 账号密码登录成功！")
+                return True
+        except Exception as e:
+            log(f"❌ 账号密码登录异常: {e}")
+            
+    log("❌ 所有登录尝试均失败。")
+    return False
 
 def renew_service(page):
     try:
